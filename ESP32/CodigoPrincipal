@@ -23,8 +23,8 @@ const int DOUTder = 35;
 const int CLKder = 27;
 
 ////////////////////           Datos de WiFi            //////////////////////////////
-#define WIFI_SSID "Harry-WiFi"
-#define WIFI_PASSWORD "GOKU2024"
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 30000;  // Intervalo de reconexión en ms
 
@@ -34,32 +34,6 @@ const unsigned long reconnectInterval = 30000;  // Intervalo de reconexión en m
 #define CLIENT_EMAIL "smartcom@comederosmart.iam.gserviceaccount.com"
 const char PRIVATE_KEY[] PROGMEM =
   "-----BEGIN PRIVATE KEY-----\n"
-  "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCx90+lQQ+g6O6O\n"
-  "zP7UF0qB2guo6nYZRdcpMT7FSIvwA3NMpC9itKzIXQwFrrIIBMcPSkQI/1NJ3aB0\n"
-  "kdV8Zhn+sDkgSK9PCDkJiuXDP+12jvvMX0rFwzJlXLi2pCY7INjJJ3yKs2ckXpsI\n"
-  "ZN8vVOmj6lMqbzzfmEtY8+Dik+V0+/Ir4ut9rqjiAbF5SuQGKw8J8qZPItbOHMmZ\n"
-  "tdzn0LxBblWJItQh7kNMzHYzw1rqTTheAf9P4i0z/ABtJBlyWq8p/mfy0WuoT4Vc\n"
-  "WosGoGHsSN/X83hMQ71LpwcGKRZiXe16zvm4PRH1LcOsl/MZLG2rRx4K1H22Zd8B\n"
-  "L+r3rRqRAgMBAAECggEAAyxviPkxetdqiSUAUpaJfWousOwA8AOQAh/a4GRiO/UI\n"
-  "y2QmZOyHRAGuRSPr0HMq3FPBBbbNZLzhN5Dx8VhmBGXet+vZ5fc14qzdmusu/DEx\n"
-  "re/hVshbw8VY9SdVV/K2kPQ9fyDywPoXqkk3tmmtiq7zHZerGormBZOgRhQYeHr9\n"
-  "xNHx5nWeu8o1twAI+Z0AvXBcqpwtteSXTxoGyd2mTYXcHMy32Ygcet1v0yp0RXwF\n"
-  "6bPMdyktf5Mj3LE4QgIwNMuxD5saDs0+dy+GenjLah5BsHV+3AvlcWqFHCQ1ipzl\n"
-  "S5dTMyKxTwR5UAxSx1i1wDJZ9C1s34yaoIOKOfsnQQKBgQDz/7fI+fGBQGT6BPfG\n"
-  "zdhtBaGReFLUuhysfcUByUAMScEysAUJXSEIH+wPqspVunEtt0MjOGHSDsdE+cWU\n"
-  "xuOIp2ikdX35oP8luNbrFX7QToWyu9Bzw30Br68n0d3C3I4fsei+PEkMgcqXDlHT\n"
-  "klRDoAGQa28SWExPbIs/W0sYwQKBgQC6uCYaasNJd3wozrI223poo4QHQCCBxKN6\n"
-  "6nHDVcd0K5wvVw1NoxAe6NNFUBwDby6vytsilGkBkT/A1yRRHagWl2rD/Fa8g0HN\n"
-  "k2N/hfTP1OXehRbb8jvGndMX45K8vxDXKmsXJPWipBPf57iuxmmF6h49822RYNDI\n"
-  "xImQrUol0QKBgQCxj4njC2CgOohBGZRmbC3vSIXHItTEUZvEOtI+9oFRb+rURBum\n"
-  "MMt06iYTUKplsIPkTNTisIkfH/oLS+ho2EOEkq8n3wiJvItwnA5qjP34AOxyoRKU\n"
-  "69HwhDTmuWa0A2S50/IXXi+almkjfBw35ujDPZFl04jExNTjh43d0UXZAQKBgQC3\n"
-  "+zuQTCKhAVsV2pU/+INlF7nAay+crmVneBsgniUqEs6S1vQEy+fWjROf+I+h0qvu\n"
-  "C7RhHltZcAWhvlvKka5OlGRfOQU+OxdbuR8RSK0xHFZkLD+Z+dVsn5ags1yjHqE5\n"
-  "YlKjO4fN+l6bAXi4vki76zRhVrtfxEX1jbL/G8E0AQKBgBwKaOmBA3MSIZ5y8ULA\n"
-  "mGCvjX6rtyKs34yJYLwofOn7XGQpnFFQuZsnGBdKirCvlZF8M5SEMPEUNDLDgKo5\n"
-  "APaxaE5cw/SDz/x16ZdbmLp+ggCG1DThFvTdUYiS7/lNZ3FzxohlNlVUHnp6mZhz\n"
-  "tYJCW6PC31hODFFjcEh3NuFy\n"
   "-----END PRIVATE KEY-----\n";
 const char spreadsheetId[] = "1PiHm8NEA6GxGEozErl-PLXkFvrrOLpjImsjkpFxVofg";  // ID de la hoja de cálculo
 
