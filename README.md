@@ -5,7 +5,7 @@ Proyecto final de la carrera de Ingeniería Mecatrónica en la FIUNLZ - 2024
 Autores: Salto, Alejo Daniel y Vazquez, Nahir Alanis
 
 
-## Resumen
+### Resumen
 
 
 El presente proyecto explica en detalle el proceso de diseño, desarrollo y funcionamiento 
