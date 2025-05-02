@@ -1,0 +1,720 @@
+// Macro para activar/desactivar la depuración
+// #define DEBUG  // Desactiva el modo de depuración
+#ifdef DEBUG
+#define DEBUG_PRINT(x) Serial.print(x)
+#define DEBUG_PRINTLN(x) Serial.println(x)
+#else
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINTLN(x)
+#endif
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include "time.h"
+#include <ESP_Google_Sheet_Client.h>
+#include <Stepper.h>
+#include "HX711.h"
+
+HX711 balanzaIzquierda;
+const int DOUTizq = 16;  //Rx
+const int CLKizq = 17;
+HX711 balanzaDerecha;
+const int DOUTder = 35;
+const int CLKder = 27;
+
+////////////////////           Datos de WiFi            //////////////////////////////
+#define WIFI_SSID "Harry-WiFi"
+#define WIFI_PASSWORD "GOKU2024"
+unsigned long lastReconnectAttempt = 0;
+const unsigned long reconnectInterval = 30000;  // Intervalo de reconexión en ms
+
+
+// Datos de la cuenta de Google y la hoja de cálculo
+#define PROJECT_ID "comederosmart"
+#define CLIENT_EMAIL "smartcom@comederosmart.iam.gserviceaccount.com"
+const char PRIVATE_KEY[] PROGMEM =
+  "-----BEGIN PRIVATE KEY-----\n"
+  "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCx90+lQQ+g6O6O\n"
+  "zP7UF0qB2guo6nYZRdcpMT7FSIvwA3NMpC9itKzIXQwFrrIIBMcPSkQI/1NJ3aB0\n"
+  "kdV8Zhn+sDkgSK9PCDkJiuXDP+12jvvMX0rFwzJlXLi2pCY7INjJJ3yKs2ckXpsI\n"
+  "ZN8vVOmj6lMqbzzfmEtY8+Dik+V0+/Ir4ut9rqjiAbF5SuQGKw8J8qZPItbOHMmZ\n"
+  "tdzn0LxBblWJItQh7kNMzHYzw1rqTTheAf9P4i0z/ABtJBlyWq8p/mfy0WuoT4Vc\n"
+  "WosGoGHsSN/X83hMQ71LpwcGKRZiXe16zvm4PRH1LcOsl/MZLG2rRx4K1H22Zd8B\n"
+  "L+r3rRqRAgMBAAECggEAAyxviPkxetdqiSUAUpaJfWousOwA8AOQAh/a4GRiO/UI\n"
+  "y2QmZOyHRAGuRSPr0HMq3FPBBbbNZLzhN5Dx8VhmBGXet+vZ5fc14qzdmusu/DEx\n"
+  "re/hVshbw8VY9SdVV/K2kPQ9fyDywPoXqkk3tmmtiq7zHZerGormBZOgRhQYeHr9\n"
+  "xNHx5nWeu8o1twAI+Z0AvXBcqpwtteSXTxoGyd2mTYXcHMy32Ygcet1v0yp0RXwF\n"
+  "6bPMdyktf5Mj3LE4QgIwNMuxD5saDs0+dy+GenjLah5BsHV+3AvlcWqFHCQ1ipzl\n"
+  "S5dTMyKxTwR5UAxSx1i1wDJZ9C1s34yaoIOKOfsnQQKBgQDz/7fI+fGBQGT6BPfG\n"
+  "zdhtBaGReFLUuhysfcUByUAMScEysAUJXSEIH+wPqspVunEtt0MjOGHSDsdE+cWU\n"
+  "xuOIp2ikdX35oP8luNbrFX7QToWyu9Bzw30Br68n0d3C3I4fsei+PEkMgcqXDlHT\n"
+  "klRDoAGQa28SWExPbIs/W0sYwQKBgQC6uCYaasNJd3wozrI223poo4QHQCCBxKN6\n"
+  "6nHDVcd0K5wvVw1NoxAe6NNFUBwDby6vytsilGkBkT/A1yRRHagWl2rD/Fa8g0HN\n"
+  "k2N/hfTP1OXehRbb8jvGndMX45K8vxDXKmsXJPWipBPf57iuxmmF6h49822RYNDI\n"
+  "xImQrUol0QKBgQCxj4njC2CgOohBGZRmbC3vSIXHItTEUZvEOtI+9oFRb+rURBum\n"
+  "MMt06iYTUKplsIPkTNTisIkfH/oLS+ho2EOEkq8n3wiJvItwnA5qjP34AOxyoRKU\n"
+  "69HwhDTmuWa0A2S50/IXXi+almkjfBw35ujDPZFl04jExNTjh43d0UXZAQKBgQC3\n"
+  "+zuQTCKhAVsV2pU/+INlF7nAay+crmVneBsgniUqEs6S1vQEy+fWjROf+I+h0qvu\n"
+  "C7RhHltZcAWhvlvKka5OlGRfOQU+OxdbuR8RSK0xHFZkLD+Z+dVsn5ags1yjHqE5\n"
+  "YlKjO4fN+l6bAXi4vki76zRhVrtfxEX1jbL/G8E0AQKBgBwKaOmBA3MSIZ5y8ULA\n"
+  "mGCvjX6rtyKs34yJYLwofOn7XGQpnFFQuZsnGBdKirCvlZF8M5SEMPEUNDLDgKo5\n"
+  "APaxaE5cw/SDz/x16ZdbmLp+ggCG1DThFvTdUYiS7/lNZ3FzxohlNlVUHnp6mZhz\n"
+  "tYJCW6PC31hODFFjcEh3NuFy\n"
+  "-----END PRIVATE KEY-----\n";
+const char spreadsheetId[] = "1PiHm8NEA6GxGEozErl-PLXkFvrrOLpjImsjkpFxVofg";  // ID de la hoja de cálculo
+
+
+// Configuración de NTP
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = -10800;  
+const int daylightOffset_sec = 3600;
+
+
+//////      Variables y Flags
+unsigned long horariosIzquierdo[2];  // Array de horarios para el plato izquierdo
+bool horarioUsadoIzquierdo[2] = { false, false };
+unsigned long porcionesIzquierdo[2];  // Array para las porciones de cada horario del plato izquierdo
+unsigned long sobranteIzq;
+unsigned long horariosDerecho[2];  // Array de horarios para el plato derecho
+bool horarioUsadoDerecho = false;
+unsigned long porcionesDerecho[2];  // Array para las porciones de cada horario del plato derecho
+unsigned long sobranteDer;
+
+bool primeraLecturaDelDia = false;
+bool mensajeEsperandoImpreso = false;
+bool comidaListaIzquierdo = false;      // true cuando la comida esté lista para el plato izquierdo
+bool mascotaCorrectaIzquierdo = false;  // true cuando el animal frente al plato izquierdo sea el correcto
+bool comidaListaDerecho = false;        // true cuando la comida esté lista para el plato derecho
+bool mascotaCorrectaDerecho = false;    // true cuando el animal frente al plato derecho sea el correcto
+
+const int platoIzquierdo = 0;  // Definiciones para identificar los platos
+const int platoDerecho = 1;
+
+// Variables para el intervalo de dispensar en milisegundos
+const unsigned long intervaloPreparacionIzquierdo = 5 * 60;  // 5 minutos en segundos para el plato izquierdo
+
+// Configuración de motores y sensores del cajón izquierdo
+const int stepsPerRevolution = 512;  
+
+int IN3_izq = 4;
+int IN4_izq = 2;
+int ENB = 15;
+int FC_adentro_izq = 3;
+int FC_afuera_izq = 22;  // EX 1
+// Configuración de motores y sensores del cajón derecho
+int IN1_der = 14;
+int IN2_der = 12;
+int ENA = 13;
+int FC_adentro_der = 34;
+int FC_afuera_der = 39;
+
+// Definir los pines del ULN2003A conectados a la ESP32 para motores paso a paso
+Stepper stepper_izq(stepsPerRevolution, 5, 18, 19, 21);   // Pines para cajón izquierdo
+Stepper stepper_der(stepsPerRevolution, 26, 25, 33, 32);  // Pines para cajón derecho
+
+
+
+
+/////////////////////////        Setup          /////////////////////////////////////////////////////////
+void setup() {
+  Serial.begin(115200);
+  Serial.println();
+  primeraLecturaDelDia = false;
+
+  // Conectar a WiFi
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Conectando a WiFi");
+  int intentos = 0;
+  while (WiFi.status() != WL_CONNECTED && intentos < 10) {
+    delay(500);
+    Serial.print(".");
+    intentos++;
+  }
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("No se pudo conectar a WiFi. Modo offline activado.");
+  } else {
+    Serial.println("Conectado a Wi-Fi!");
+    Serial.print("Con IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Configuración inicial de Google Sheets
+    GSheet.setTokenCallback(tokenStatusCallback);
+    GSheet.setPrerefreshSeconds(10 * 60);  // Refrescar token cada 10 minutos
+    GSheet.begin(CLIENT_EMAIL, PROJECT_ID, PRIVATE_KEY);
+
+    Serial.println("Google Sheets configurado.");
+
+    // Inicializar tiempo desde NTP
+    obtenerHoraActual();
+
+    // Leer horarios y porciones iniciales desde Google Sheets
+    Serial.println("Leyendo celdas desde Google Sheets...");
+    cargarDatos();
+  }
+
+  // Configuración de pines del cajón izquierdo
+  pinMode(IN3_izq, OUTPUT);
+  pinMode(IN4_izq, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(FC_adentro_izq, INPUT);
+  pinMode(FC_afuera_izq, INPUT);
+  stepper_izq.setSpeed(10);
+  // Configuración de pines del cajón derecho
+  pinMode(IN1_der, OUTPUT);
+  pinMode(IN2_der, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(FC_adentro_der, INPUT);
+  pinMode(FC_afuera_der, INPUT);
+  stepper_der.setSpeed(10);
+
+  inicializarCeldas();
+}
+
+
+/////////////////////////        Bucle principal          /////////////////////////////////////////////////////////
+void loop() {
+  // Verifica la conexión WiFi
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Conexión WiFi perdida. Intentando reconectar...");
+    reconnectWiFi();  // Intenta reconectar 
+    mascotaCorrectaIzquierdo = false;
+    mascotaCorrectaDerecho = false;
+  }
+
+  // Si está conectado a WiFi, intenta leer desde Google Sheets
+  if (WiFi.status() == WL_CONNECTED) {
+    unsigned long horaActual = obtenerHoraActualEnSegundos();
+    if (esHoraDeReinicio()) {
+      Serial.println("Hora de reinicio");
+      // Leer horarios y porciones iniciales desde Google Sheets
+      cargarDatos();
+      horarioUsadoIzquierdo[0] = false;
+      horarioUsadoIzquierdo[1] = false;
+      horarioUsadoDerecho = false;
+      // cargarSobrante();
+    }
+
+    // Preparar comida
+    if ((horarioUsadoIzquierdo[0] == false) && (horaActual >= (horariosIzquierdo[0] - intervaloPreparacionIzquierdo)) && (horaActual < horariosIzquierdo[1] - intervaloPreparacionIzquierdo) && (digitalRead(FC_adentro_izq) == LOW) && (!comidaListaIzquierdo)) {
+
+      DEBUG_PRINTLN("Preparando primera porción izquierda a las ");
+      DEBUG_PRINT(horariosIzquierdo[0] / 3600);  // Hora en formato hs
+      DEBUG_PRINT(":");
+      DEBUG_PRINTLN((horariosIzquierdo[0] % 3600) / 60);  // Minutos
+
+      prepararComida(platoIzquierdo, 0);
+      horarioUsadoIzquierdo[0] = true;
+
+    } else if ((horarioUsadoIzquierdo[1] == false) && (horaActual >= (horariosIzquierdo[1] - intervaloPreparacionIzquierdo)) && (digitalRead(FC_adentro_izq) == LOW) && (!comidaListaIzquierdo)) {
+
+      DEBUG_PRINTLN("Preparando segunda porción izquierda a las ");
+      DEBUG_PRINT(horariosIzquierdo[1] / 3600);  // Hora en formato hs
+      DEBUG_PRINT(":");
+      DEBUG_PRINTLN((horariosIzquierdo[1] % 3600) / 60);  // Minutos
+
+      prepararComida(platoIzquierdo, 1);
+      horarioUsadoIzquierdo[1] = true;
+      // Serial.println("horarioUsadoIzquierdo  TRUE");
+      // Serial.println(horarioUsadoIzquierdo[1]);
+    }
+
+    delay(500);
+    // Actualiza los datos desde Google Sheets
+    mascotaCorrectaIzquierdo = (leerCelda("Uno!E2") == 1);
+    Serial.println("Actualizando datos desde Google Sheets...");
+    if (mascotaCorrectaIzquierdo) {
+      Serial.println("Mascota Izquierda Ok.");
+    }
+
+    // Servir comida para el plato izquierdo
+    manejarCajonIzquierdo();
+  }
+
+  // Serial.println(obtenerPesoCeldaCarga(platoIzquierdo));
+}
+
+
+/////////////////////////        Funciones          /////////////////////////////////////////////////////////
+void cargarDatos() {
+  porcionesIzquierdo[0] = abs(leerCelda("Uno!I2"));
+  porcionesIzquierdo[1] = abs(leerCelda("Uno!J2"));
+  horariosIzquierdo[0] = leerCeldaHORA("Uno!G2");
+  horariosIzquierdo[1] = leerCeldaHORA("Uno!H2");
+
+  // Ordenar horarios y sincronizar con porciones
+  if (horariosIzquierdo[1] < horariosIzquierdo[0]) {
+    // Intercambiar horarios
+    unsigned long tempHorario = horariosIzquierdo[0];
+    horariosIzquierdo[0] = horariosIzquierdo[1];
+    horariosIzquierdo[1] = tempHorario;
+    // Intercambiar porciones correspondientes
+    unsigned long tempPorcion = porcionesIzquierdo[0];
+    porcionesIzquierdo[0] = porcionesIzquierdo[1];
+    porcionesIzquierdo[1] = tempPorcion;
+  }
+  // if (horariosDerecho[1] < horariosDerecho[0]) {
+  //   unsigned long tempHorario = horariosDerecho[0];
+  //   horariosDerecho[0] = horariosDerecho[1];
+  //   horariosDerecho[1] = tempHorario;
+  //   unsigned long tempPorcion = porcionesDerecho[0];
+  //   porcionesDerecho[0] = porcionesDerecho[1];
+  //   porcionesDerecho[1] = tempPorcion;
+  // }
+
+  printPorcionesYHorarios();
+  primeraLecturaDelDia = true;
+}
+
+bool esHoraDeReinicio() {
+  unsigned long horaActualSegundos = obtenerHoraActualEnSegundos();
+  if (horaActualSegundos >= 0 && horaActualSegundos < 900 && primeraLecturaDelDia == false) {  //  00:00 a 00:15
+    return true;
+  }
+  if (horaActualSegundos >= 900) {
+    primeraLecturaDelDia = false;  // Resetea para el próximo día
+  }
+  return false;
+}
+
+void cargarSobrante() {
+  FirebaseJson response;
+  FirebaseJson valueRangeIzq;
+  FirebaseJson valueRangeDer;
+
+  // Preparar el rango de datos para el plato izquierdo
+  valueRangeIzq.add("majorDimension", "ROWS");
+  valueRangeIzq.set("values/[0]/[0]", sobranteIzq);
+
+  // Preparar el rango de datos para el plato derecho
+  valueRangeDer.add("majorDimension", "ROWS");
+  valueRangeDer.set("values/[0]/[0]", sobranteDer);
+
+  // Registrar el sobrante del plato izquierdo en la celda específica (por ejemplo, K2)
+  bool successIzq = GSheet.values.update(&response, spreadsheetId, "Uno!K2", &valueRangeIzq);
+  if (successIzq) {
+    Serial.print("Sobrante Izquierdo registrado: ");
+    response.toString(Serial, true);
+  } else {
+    Serial.print("Error registrando sobrante izquierdo: ");
+    Serial.println(GSheet.errorReason());
+  }
+
+  // Registrar el sobrante del plato derecho en la celda específica (por ejemplo, L2)
+  bool successDer = GSheet.values.update(&response, spreadsheetId, "Uno!L2", &valueRangeDer);
+  if (successDer) {
+    Serial.print("Sobrante Derecho registrado: ");
+    response.toString(Serial, true);
+  } else {
+    Serial.print("Error registrando sobrante derecho: ");
+    Serial.println(GSheet.errorReason());
+  }
+
+  // Limpiar objetos JSON
+  response.clear();
+  valueRangeIzq.clear();
+  valueRangeDer.clear();
+}
+
+void prepararComida(int cajon, int i) {
+  String nivelAlimento;
+  // Leer el nivel de alimento según el cajón
+  if (cajon == platoIzquierdo) {
+    nivelAlimento = leerCeldaTexto("Uno!F2");
+  } else if (cajon == platoDerecho) {
+    nivelAlimento = leerCeldaTexto("Uno!F3");
+  }
+  // Verificar si el nivel de alimento es bajo
+  if (nivelAlimento == "Bajo") {
+    Serial.println("Alerta: Nivel de alimento bajo. No se puede preparar comida.");
+    return;
+  }
+
+  // Comprobación de si el cajón está en la posición "adentro"
+  if ((cajon == platoIzquierdo && digitalRead(FC_adentro_izq) == LOW) || (cajon == platoDerecho && digitalRead(FC_adentro_der) == LOW)) {
+    // Obtener el peso inicial en la celda de carga y la porción esperada
+    unsigned long pesoInicial = obtenerPesoCeldaCarga(cajon);
+    unsigned long porcion = (cajon == platoIzquierdo ? porcionesIzquierdo[i] : porcionesDerecho[i]);
+    unsigned long pesoDispensado = 0;  // Peso acumulado dispensado
+
+    DEBUG_PRINT("Peso inicial: ");
+    DEBUG_PRINTLN(pesoInicial);
+
+    // Dispensar hasta alcanzar la porción deseada
+    while ((pesoInicial + pesoDispensado) < porcion) {
+      if (cajon == platoIzquierdo) {
+        stepper_izq.step(-0.25 * stepsPerRevolution);
+      } else {
+        stepper_der.step(-0.25 * stepsPerRevolution);
+      }
+      // delay(200);
+
+      // Actualizar el peso dispensado
+      unsigned long pesoActual = obtenerPesoCeldaCarga(cajon);
+      pesoDispensado = pesoActual - pesoInicial;
+      DEBUG_PRINT("Peso dispensado: ");
+      DEBUG_PRINTLN(pesoDispensado);
+    }
+
+    // Calcular el sobrante acumulado después de dispensar
+    unsigned long sobrante = (pesoInicial + pesoDispensado) - porcion;
+
+    // Actualizar el estado del cajón y el sobrante
+    if (cajon == platoIzquierdo) {
+      sobranteIzq += sobrante;      // Acumular sobrante para el plato izquierdo
+      comidaListaIzquierdo = true;  // Indicar que la comida está lista
+      Serial.println("Comida lista izq.");
+
+    } else if (cajon == platoDerecho) {
+      sobranteDer += sobrante;    // Acumular sobrante para el plato derecho
+      comidaListaDerecho = true;  // Indicar que la comida está lista
+    }
+  } else {
+    Serial.print("Error: Cajón no está 'adentro' para el plato ");
+    Serial.println(cajon == platoIzquierdo ? "izquierdo" : "derecho");
+    return;
+  }
+}
+
+void manejarCajonIzquierdo() {
+  unsigned long pesoActual = obtenerPesoCeldaCarga(platoIzquierdo);
+  DEBUG_PRINTLN("Manejar cajon ixq.");
+  if (comidaListaIzquierdo && mascotaCorrectaIzquierdo) {
+    DEBUG_PRINTLN("Ok y lizto");
+    // Abre el cajón si está cerrado
+    if (digitalRead(FC_adentro_izq) == LOW) {
+      DEBUG_PRINTLN("Abriendo cajón izquierdo...");
+      avanzarMotorIzquierdo();
+      // Esperar hasta que el cajón esté completamente abierto
+      while (digitalRead(FC_afuera_izq) == HIGH) {
+        delay(100);
+      }
+      frenarMotorIzquierdo();
+    } else if (digitalRead(FC_afuera_izq) != LOW) {
+      DEBUG_PRINTLN("Abriendo cajón izquierdo...");
+      avanzarMotorIzquierdo();
+      // Esperar hasta que el cajón esté completamente abierto
+      while (digitalRead(FC_afuera_izq) == HIGH) {
+        delay(100);
+      }
+      frenarMotorIzquierdo();
+    }
+    if (pesoActual < 5) {
+      DEBUG_PRINTLN("La porción del plato izquierdo se termino.");
+      comidaListaIzquierdo = false;
+      if (digitalRead(FC_adentro_izq) != LOW) {
+        DEBUG_PRINTLN("Cerrando cajón izquierdo...");
+        retrocederMotorIzquierdo();
+        while (digitalRead(FC_adentro_izq) == HIGH) {
+          delay(100);
+        }
+        frenarMotorIzquierdo();
+      }
+    }
+
+  } else {
+    // Si la comida no está lista o la mascota no ok
+    if (digitalRead(FC_adentro_izq) != LOW) {
+      DEBUG_PRINTLN("Cerrando cajón izquierdo...");
+      retrocederMotorIzquierdo();
+      while (digitalRead(FC_adentro_izq) == HIGH) {
+        delay(100);
+      }
+      frenarMotorIzquierdo();
+    }
+  }
+}
+
+
+////////////////          Sheets     /////////////////////
+int leerCeldaHORA(const String &rango) {
+  FirebaseJson response;
+  if (GSheet.values.get(&response, spreadsheetId, rango.c_str())) {  // Rango directo
+    FirebaseJsonData jsonData;
+    response.get(jsonData, "values");  // Obtener el array "values"
+    if (jsonData.success) {
+      FirebaseJsonArray valuesArray;
+      jsonData.getArray(valuesArray);  // Obtener el array de valores
+      if (valuesArray.size() > 0) {
+        FirebaseJsonData firstValue;
+        valuesArray.get(firstValue, 0);  // Obtener el primer elemento del array
+        if (firstValue.success) {
+          // Limpiar el valor para obtener solo la hora
+          String valueStr = firstValue.stringValue;
+          valueStr.replace("[", "");   // Eliminar [
+          valueStr.replace("]", "");   // Eliminar ]
+          valueStr.replace("\"", "");  // Eliminar comillas
+
+          // Convertir la hora en formato HH:MM a total de segundos
+          int horas = valueStr.substring(0, 2).toInt();
+          int minutos = valueStr.substring(3, 5).toInt();
+          int totalSegundos = (horas * 3600) + (minutos * 60);  // Cambiar totalMinutos a totalSegundos
+
+          // Limpiar JSON
+          response.clear();
+          jsonData.clear();
+          valuesArray.clear();
+          return totalSegundos;  // Devolver el valor en segundos
+        }
+      }
+    }
+  } else {
+    Serial.println(GSheet.errorReason());  // Mostrar error si no se pudo leer
+  }
+  response.clear();
+  return 0;  // Devolver 0 si no se pudo leer
+}
+
+int leerCelda(const String &rango) {
+  FirebaseJson response;
+  if (GSheet.values.get(&response, spreadsheetId, rango.c_str())) {  // Rango directo
+    FirebaseJsonData jsonData;
+    response.get(jsonData, "values");  // Obtener el array "values"
+    if (jsonData.success) {
+      FirebaseJsonArray valuesArray;
+      jsonData.getArray(valuesArray);  // Obtener el array de valores
+      if (valuesArray.size() > 0) {
+        FirebaseJsonData firstValue;
+        valuesArray.get(firstValue, 0);  // Obtener el primer elemento del array
+        if (firstValue.success) {
+          // Limpiar el valor para obtener solo el número
+          String valueStr = firstValue.stringValue;
+          valueStr.replace("[", "");   // Eliminar [
+          valueStr.replace("]", "");   // Eliminar ]
+          valueStr.replace("\"", "");  // Eliminar comillas
+
+          // Convertir a entero y devolver
+          int valorCelda = valueStr.toInt();
+          // Serial.print("Porción leída desde ");
+          // Serial.print(rango);
+          // Serial.print(": ");
+          // Serial.println(valorCelda);  // Mostrar solo la porción leída
+          // Limpiar JSON
+          response.clear();
+          jsonData.clear();
+          valuesArray.clear();
+          return valorCelda;  // Devolver el valor leído
+        }
+      }
+    }
+  } else {
+    Serial.println(GSheet.errorReason());  // Mostrar error si no se pudo leer
+  }
+  response.clear();
+  return 0;  // Devolver 0 si no se pudo leer
+}
+
+String leerCeldaTexto(const String &rango) {
+  FirebaseJson response;
+  if (GSheet.values.get(&response, spreadsheetId, rango.c_str())) {  // Rango directo
+    FirebaseJsonData jsonData;
+    response.get(jsonData, "values");  // Obtener el array "values"
+    if (jsonData.success) {
+      FirebaseJsonArray valuesArray;
+      jsonData.getArray(valuesArray);  // Obtener el array de valores
+      if (valuesArray.size() > 0) {
+        FirebaseJsonData firstValue;
+        valuesArray.get(firstValue, 0);  // Obtener el primer elemento del array
+        if (firstValue.success) {
+          // Limpiar el valor para obtener solo el texto
+          String valueStr = firstValue.stringValue;
+          valueStr.replace("[", "");   // Eliminar [
+          valueStr.replace("]", "");   // Eliminar ]
+          valueStr.replace("\"", "");  // Eliminar comillas
+
+          response.clear();
+          jsonData.clear();
+          valuesArray.clear();
+          return valueStr;  // Devolver el texto leído
+        }
+      }
+    }
+  } else {
+    Serial.println(GSheet.errorReason());  // Mostrar error si no se pudo leer
+  }
+  response.clear();
+  return "";  // Devolver cadena vacía si no se pudo leer
+}
+
+void printPorcionesYHorarios() {
+  Serial.println("Celdas leídas con éxito.");
+
+  // Lado izquierdo
+  Serial.println("Lado izquierdo:");
+  for (int i = 0; i < 2; i++) {
+    unsigned long porcion = porcionesIzquierdo[i];
+    unsigned long horarioSegundos = horariosIzquierdo[i];
+    int horas = horarioSegundos / 3600;
+    int minutos = (horarioSegundos % 3600) / 60;
+
+    Serial.print("Porcion ");
+    Serial.print(i + 1);
+    Serial.print(": ");
+    Serial.print(porcion);
+    Serial.print(" gr - ");
+    Serial.print(horas);
+    Serial.print(":");
+    if (minutos < 10) Serial.print("0");  // Asegura que se impriman dos dígitos para los minutos
+    Serial.println(minutos);
+    // Serial.println(horariosIzquierdo[i]);
+  }
+
+  // Lado derecho
+  // Serial.println("Lado derecho:");
+  // for (int i = 0; i < 2; i++) {
+  //   unsigned long porcion = porcionesDerecho[i];
+  //   unsigned long horarioSegundos = horariosDerecho[i];
+  //   int horas = horarioSegundos / 3600;
+  //   int minutos = (horarioSegundos % 3600) / 60;
+
+  //   Serial.print("Porcion ");
+  //   Serial.print(i + 1);
+  //   Serial.print(": ");
+  //   Serial.print(porcion);
+  //   Serial.print(" gr - ");
+  //   Serial.print(horas);
+  //   Serial.print(":");
+  //   if (minutos < 10) Serial.print("0");
+  //   Serial.println(minutos);
+  // }
+}
+
+//////////////   Funciones para el cajón izquierdo
+void avanzarMotorIzquierdo() {
+  // Ponemos ambos pines de dirección en el mismo estado (HIGH o LOW) para frenar
+  digitalWrite(IN3_izq, HIGH);
+  digitalWrite(IN4_izq, LOW);
+  int pmw = 150;
+  for (pmw; pmw >= 80; pmw = pmw - 30) {
+    analogWrite(ENB, pmw);
+    delay(100);
+  }
+}
+
+void retrocederMotorIzquierdo() {
+  digitalWrite(IN3_izq, LOW);
+  digitalWrite(IN4_izq, HIGH);
+  // analogWrite(ENB, 160);
+  int pmw = 150;
+  for (pmw; pmw >= 80; pmw = pmw - 30) {
+    analogWrite(ENB, pmw);
+    delay(100);
+  }
+}
+
+void frenarMotorIzquierdo() {
+  digitalWrite(IN3_izq, HIGH);
+  digitalWrite(IN4_izq, HIGH);
+  analogWrite(ENB, 0);
+}
+
+////////  celdas /////////
+float Leaky(float x) {
+  static const float lambda = 0.75;
+  static float y = 0;
+  y = lambda * y + (1 - lambda) * x;
+  return y;
+}
+
+void inicializarCeldas() {
+  balanzaIzquierda.begin(DOUTizq, CLKizq);
+  Serial.print("Lectura del valor del ADC:  ");
+  Serial.println(balanzaIzquierda.read());
+  Serial.println("No ponga ningun  objeto sobre la balanza A");
+  Serial.println("Destarando...");
+  Serial.println("...");
+  balanzaIzquierda.set_scale(696);  // Establecemos la escala
+  balanzaIzquierda.tare(20);        //El peso actual es considerado Tara.
+  Serial.println("Listo para pesar");
+
+  // balanzaDerecha.begin(DOUTder, CLKder);
+  // Serial.print("Lectura del valor del ADC:  ");
+  // Serial.println(balanzaDerecha.read());
+  // Serial.println("No ponga ningun  objeto sobre la balanzaB");
+  // Serial.println("Destarando...");
+  // Serial.println("...");
+  // balanzaDerecha.set_scale(501);  // Establecemos la escala
+  // balanzaDerecha.tare(20);        //El peso actual es considerado Tara.
+  // Serial.println("Listo para pesar");
+}
+
+unsigned long obtenerPesoCeldaCarga(int cajon) {
+  float pesoActual = 0;
+  // Verifica si el cajón corresponde a la balanza izquierda o derecha
+  if (cajon == platoIzquierdo) {
+    pesoActual = balanzaIzquierda.get_units(1);
+    pesoActual = Leaky(pesoActual);
+    if (pesoActual < 0) {
+      pesoActual = 0;
+    }
+  } else if (cajon == platoDerecho) {
+    pesoActual = balanzaDerecha.get_units(1);
+    pesoActual = Leaky(pesoActual);
+    if (pesoActual < 0) {
+      pesoActual = 0;
+    }
+  } else {
+    // Si el cajón no es válido, devuelve 0 como peso por defecto
+    return 0;
+  }
+  return (unsigned long)round(pesoActual);
+}
+
+
+////////////////        extras       //////////////
+// Función para obtener la hora actual en segundos desde medianoche
+unsigned long obtenerHoraActualEnSegundos() {
+  struct tm timeinfo;
+  // Obtén el tiempo local
+  if (!getLocalTime(&timeinfo, 5000)) {
+    Serial.println("No se pudo obtener la hora");
+    return 0;  // Devuelve 0 si no se puede obtener la hora
+  }
+  // Calcula y devuelve los segundos desde medianoche
+  return timeinfo.tm_hour * 3600 + timeinfo.tm_min * 60 + timeinfo.tm_sec;
+}
+
+void obtenerHoraActual() {
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  // Espera a que el tiempo esté disponible
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo, 5000)) {
+    Serial.println("No se pudo obtener la hora");
+    return;
+  }
+  // Mostrar la hora actual
+  Serial.print("Hora actual: ");
+  Serial.print(timeinfo.tm_hour);
+  Serial.print(":");
+  Serial.print(timeinfo.tm_min);
+  Serial.print(":");
+  Serial.println(timeinfo.tm_sec);
+}
+
+void reconnectWiFi() {
+  // Intenta reconectar al WiFi
+  WiFi.disconnect();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 10) {  // Límite de intentos
+    delay(1000);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nReconectado a WiFi!");
+  } else {
+    Serial.println("\nNo se pudo reconectar a WiFi.");
+  }
+}
+
+// Callback del token (muestra el estado del token en el Serial)
+void tokenStatusCallback(TokenInfo info) {
+  if (info.status == token_status_error) {
+    GSheet.printf("Token error: %s\n", GSheet.getTokenError(info).c_str());
+  } else {
+    GSheet.printf("Token info: type = %s, status = %s\n", GSheet.getTokenType(info).c_str(), GSheet.getTokenStatus(info).c_str());
+  }
+}
